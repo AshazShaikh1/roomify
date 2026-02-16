@@ -1,6 +1,6 @@
 import { Button } from 'components/ui/Button';
 import { generate3DView } from 'lib/ai.action';
-import { Box, Download, RefreshCcw, Share, Share2, X } from 'lucide-react';
+import { Box, Download, RefreshCcw, Share2, X } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
