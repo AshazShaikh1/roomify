@@ -1,8 +1,15 @@
 export const HOSTING_CONFIG_KEY = "roomify_hosting_config";
 export const HOSTING_DOMAIN_SUFFIX = ".puter.site";
 
-export const isHostedUrl = (value: unknown): value is string =>
-    typeof value === "string" && value.includes(HOSTING_DOMAIN_SUFFIX);
+export const isHostedUrl = (value: unknown): value is string => {
+    if (typeof value !== "string") return false;
+    try {
+        const url = new URL(value);
+        return url.hostname.endsWith(HOSTING_DOMAIN_SUFFIX);
+    } catch {
+        return false;
+    }
+};
 
 export const createHostingSlug = () =>
     `roomify-${Date.now().toString(36)}-${Math.random()
@@ -27,22 +34,27 @@ export const getImageExtension = (contentType: string, url: string): string => {
     const type = (contentType || "").toLowerCase();
     const typeMatch = type.match(/image\/(png|jpe?g|webp|gif|svg\+xml|svg)/);
     if (typeMatch?.[1]) {
-        const ext = typeMatch[1].toLowerCase();
-        return ext === "jpeg" || ext === "jpg"
-            ? "jpg"
-            : ext === "svg+xml"
-                ? "svg"
-                : ext;
+        let ext = typeMatch[1].toLowerCase();
+        if (ext === 'svg+xml') ext = 'svg';
+        if (ext === 'jpeg') ext = 'jpg';
+        return ext;
     }
 
     const dataMatch = url.match(/^data:image\/([a-z0-9+.-]+);/i);
     if (dataMatch?.[1]) {
-        const ext = dataMatch[1].toLowerCase();
-        return ext === "jpeg" ? "jpg" : ext;
+        let ext = dataMatch[1].toLowerCase();
+        if (ext === 'svg+xml') ext = 'svg';
+        if (ext === 'jpeg') ext = 'jpg';
+        return ext;
     }
 
     const extMatch = url.match(/\.([a-z0-9]+)(?:$|[?#])/i);
-    if (extMatch?.[1]) return extMatch[1].toLowerCase();
+    if (extMatch?.[1]) {
+        let ext = extMatch[1].toLowerCase();
+        if (ext === 'svg+xml') ext = 'svg';
+        if (ext === 'jpeg') ext = 'jpg';
+        return ext;
+    }
 
     return "png";
 };
@@ -51,11 +63,19 @@ export const dataUrlToBlob = (
     dataUrl: string,
 ): { blob: Blob; contentType: string } | null => {
     try {
-        const match = dataUrl.match(/^data:([^;]+)?(;base64)?,([\s\S]*)$/i);
-        if (!match) return null;
-        const contentType = match[1] || "";
-        const isBase64 = !!match[2];
-        const data = match[3] || "";
+        const commaIndex = dataUrl.indexOf(',');
+        if (commaIndex === -1) return null;
+
+        const header = dataUrl.substring(5, commaIndex);
+        const data = dataUrl.substring(commaIndex + 1);
+
+        const tokens = header.split(';');
+        const isBase64 = tokens.includes('base64');
+        const contentType = tokens[0] || '';
+
+        const params = tokens.filter(t => t !== 'base64' && t !== contentType);
+        const fullContentType = [contentType, ...params].join(';');
+
         const raw = isBase64
             ? atob(data.replace(/\s/g, ""))
             : decodeURIComponent(data);
@@ -63,7 +83,7 @@ export const dataUrlToBlob = (
         for (let i = 0; i < raw.length; i += 1) {
             bytes[i] = raw.charCodeAt(i);
         }
-        return { blob: new Blob([bytes], { type: contentType }), contentType };
+        return { blob: new Blob([bytes], { type: fullContentType }), contentType: fullContentType };
     } catch {
         return null;
     }

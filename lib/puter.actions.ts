@@ -13,7 +13,7 @@ export const getCurrentUser = async () => {
     }
 }
 
-export const createProject = async ({ item }: CreateProjectParams): Promise<DesignItem | null | undefined> => {
+export const createProject = async ({ item, visibility = 'private' }: CreateProjectParams): Promise<DesignItem | null | undefined> => {
     const projectId = item.id;
 
     const hosting = await getOrCreateHostingConfig()
@@ -47,15 +47,15 @@ export const createProject = async ({ item }: CreateProjectParams): Promise<Desi
         ...rest
     } = item;
 
-    const payload = {
+    const payload: DesignItem = {
         ...rest,
         sourceImage: resolvedSource,
         renderedImage: resolvedRender,
+        isPublic: visibility === 'public',
     }
 
     try {
-        // Call the puter worker to store project in kv
-
+        await puter.kv.set(`project_${projectId}`, payload)
         return payload;
     } catch (e) {
         console.log('Failed to save project', e)
